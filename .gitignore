@@ -1,0 +1,11 @@
+build/
+*.o
+*~
+*#
+*.bak
+*.save
+*.drum
+tests/unix-root.disk
+.DS_Store
+**/.vscode/
+**/*.code-workspace

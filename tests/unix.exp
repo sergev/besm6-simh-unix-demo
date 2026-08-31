@@ -1,0 +1,108 @@
+#!/usr/bin/expect -f
+#
+# unix.exp -- boot test for the script-free simulator.
+#
+# besm6_main.c hardcodes its image names and reads them from the current
+# directory, so this runs in a scratch copy of demo/: the boot writes to both
+# packs and creates the drums, and the tracked images must stay clean.
+#
+#       tests/unix.exp [-v]       -v echoes the session
+#
+set timeout 60
+
+set verbose 0
+foreach arg $argv {
+    if {$arg eq "-v"} { set verbose 1 }
+}
+log_user $verbose
+
+set here [file dirname [file normalize $argv0]]
+set root [file dirname $here]
+set sim  [file join $root build besm6]
+set demo [file join $root demo]
+
+proc fail {msg} {
+    puts "FAIL: $msg"
+    exit 1
+}
+
+if {![file executable $sim]} { fail "no simulator at $sim -- run make first" }
+
+# Scratch copy of the images.  The packs are 8M each; the `unix' a.out and the
+# drums are small, and the drums are created by the boot.
+set work [exec mktemp -d]
+foreach f {root3072.disk usr3100.disk unix} {
+    if {![file exists [file join $demo $f]]} { fail "missing $demo/$f" }
+    file copy [file join $demo $f] [file join $work $f]
+}
+cd $work
+
+# Trace to a file, with no device selected: the operator messages should land
+# there and nothing should change on stdout.  BESM6_DEBUG unset would default
+# BESM6_TRACE to "cpu" and bury the boot in an instruction trace.
+set logfile [file join $work besm6.log]
+set env(BESM6_DEBUG) $logfile
+set env(BESM6_TRACE) none
+
+# Wait for `pat', or fail saying which step did not happen.
+proc want {pat what} {
+    expect {
+        -ex $pat { }
+        timeout  { fail "timed out waiting for $what" }
+        eof      { fail "simulator exited before $what" }
+    }
+}
+
+spawn $sim
+
+# The twelve setup steps announce themselves.
+want "console on T031"          "attach tty25 console"
+want "Line 26 Listening on port 4199" "attach tty26 Line=26,4199"
+want "DRUM0: creating new file" "attach -n drum0"
+want "DRUM1: creating new file" "attach -n drum1"
+
+# main() sized memory and mounted the root, so `load unix' and `go' worked and
+# md00 is attached -- without it the boot panics in iinit().
+want "phys mem  = 3072 kbytes" "startup()"
+want "user mem  = 2874 kbytes" "startup()"
+want "swap size = 3072 kbytes" "startup()"
+want "root size = 6000 kbytes" "iinit() -- is md00 attached?"
+want "Single-user mode"        "the single-user banner"
+want "# "                      "the first shell prompt"
+
+# A command off the root pack, read through tty25 in raw8.
+send "ls /bin\r"
+want "sync" "ls /bin"
+want "# "   "the prompt after ls"
+
+# The kernel has no clock-calendar; the operator types the date.
+send "date 2608301200\r"
+want "Aug 30 12:00:00" "date"
+want "# "              "the prompt after date"
+
+# ^D ends the shell: init reaps it, runs /etc/rc through a second shell, which
+# fscks and mounts /dev/rmd1 on /usr.  That exercises md01 and the drums --
+# exece() stages its argument list in swap, so with no drum every exec is EIO.
+send "\004"
+want "Going multi-user" "init to run /etc/rc"
+want "/dev/rmd1"        "fsck of the /usr pack -- is md01 attached?"
+want "Phase 5 - Check Free List" "fsck to finish"
+want "login:"           "getty on the console"
+
+# ^E stops the CPU; with no sim> prompt left, that ends the run.
+send "\005"
+expect {
+    eof     { }
+    timeout { fail "^E did not stop the simulator" }
+}
+
+set status [lindex [wait] 3]
+if {$status != 0} { fail "simulator exited with status $status" }
+
+# The debug file was written and closed.
+if {![file exists $logfile]} { fail "BESM6_DEBUG file was not created" }
+if {[file size $logfile] == 0} { fail "BESM6_DEBUG file is empty" }
+
+file delete -force $work
+puts "PASS"
+exit 0
