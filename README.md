@@ -1,7 +1,7 @@
-# simbesm — a BESM-6 simulator, on its way to Braam
+# A BESM-6 simulator, on its way to Braam
 
 A simulator of the **BESM-6** (БЭСМ-6), the most widely used Soviet mainframe
-of the 1960s–80s: a 48-bit, octal, single-CPU machine with sign-magnitude
+of the 1960s–80s: a 48-bit, single-CPU machine with sign-magnitude
 floating point. It boots Unix, and the kernel and disk images to do that are
 in [demo/](demo/).
 
@@ -110,5 +110,4 @@ mode, signal handlers and wall-clock timing.
 
 SIMH is copyright © 1993–2022 Robert M Supnik, Mark Pizzolato and others; the
 BESM-6 simulator is copyright © Serge Vakulenko and Leonid Broukhis. Both are
-under the MIT-style licence in [LICENSE.txt](LICENSE.txt), and each source file
-carries its own notice.
+under the MIT-style licence in [LICENSE.txt](LICENSE.txt).

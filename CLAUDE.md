@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Everything BESM-6 does not reach has been deleted: all other simulators, the SDL front panel, the entire SCP command interpreter (scripting, the `sim>` REPL, SET/SHOW/ATTACH/EXAMINE, SAVE/RESTORE, the remote console, HELP), every peripheral Unix does not boot from (line printer, punch tape, punch cards, mag tape), and the framework modules `sim_disk`, `sim_tape`, `sim_ether`, `sim_card`, `sim_imd`, `sim_scsi`, `sim_video`, `sim_serial`, `sim_frontpanel`. What remains in `simh/` is `scp.c` plus `sim_console`, `sim_sock`, `sim_timer`, `sim_tmxr`. Don't reintroduce the deleted ones; see [README.md](README.md) for why each went.
 
-The **BESM-6** is a Soviet mainframe: 48-bit word, octal, single CPU.
+The **BESM-6** is a Soviet mainframe: 48-bit word, single CPU. Its documentation
+and this code write word values in octal.
 
 ## Build
 
@@ -40,7 +41,7 @@ Tracing is likewise C now — set `cpu_dev.dctrl` / `mmu_dev.dctrl` / `drum_dev.
 
 ## Architecture notes (`besm6/`)
 
-- **Word model.** 48-bit words held in `t_value`. Everything is octal. Floating point is sign-magnitude with a base-2 exponent. Bit macros in `besm6_defs.h` number bits **right-to-left starting at 1** (`BBIT(n)`, `BIT40`, `BIT41`, `BIT48`, …) — the opposite of most SIMH machines, so read the header before touching arithmetic.
+- **Word model.** 48-bit words held in `t_value`. Constants and traces are written in octal. Floating point is sign-magnitude with a base-2 exponent. Bit macros in `besm6_defs.h` number bits **right-to-left starting at 1** (`BBIT(n)`, `BIT40`, `BIT41`, `BIT48`, …) — the opposite of most SIMH machines, so read the header before touching arithmetic.
 - **Registers.** `M[]` holds the index/modifier registers (М1–М17) plus special registers (PSW, SPSW, PC, …), with indices defined in `besm6_defs.h`. Cyrillic register names (М1–М17, СМ/ACC) show up in traces.
 - **Memory.** `512*1024` words. Drums/disks are organized in zones of `ZONE_SIZE = 8 + 1024` words (8 system words + 1 Kword of user data), each word stored as an 8-byte little-endian record.
 - **File layout.** `besm6_cpu.c` = fetch/execute + `DEVICE` tables + `sim_devices[]`; `besm6_arith.c` = ALU/FPU; `besm6_mmu.c` = memory mapping & protection; `besm6_sys.c` = load/dump, symbolic assembler/disassembler; `besm6_disk.c`/`besm6_drum.c` = mass storage; `besm6_tty.c` = the only peripheral left (terminals); `besm6_gost.c` = GOST-10859 to Unicode/UTF-8, used by the Consul lines. The I/O addresses of the removed peripherals are still decoded by `cmd_033()` in `besm6_cpu.c`, but do nothing.
